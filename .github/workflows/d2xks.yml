@@ -7,7 +7,7 @@ on:
       - d2xks-reproducible-sixteen-clean
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: d2xks-${{ github.ref }}
@@ -110,14 +110,62 @@ jobs:
           source ./buildenv.sh ${{ matrix.target }}
           ./scripts/make_rom.sh --force
 
-      - name: Upload ROM package
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Find ZIP file
+        id: find_zip
+        run: |
+          ZIP_FILE=$(find out -maxdepth 1 -type f -name '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo 'ROM package was not found.' >&2
+            exit 1
+          fi
+
+          ZIP_NAME=$(basename "$ZIP_FILE")
+          ZIP_SHA256=$(sha256sum "$ZIP_FILE" | cut -d' ' -f1)
+          echo "zip_path=$ZIP_FILE" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+          echo "zip_sha256=$ZIP_SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Split ROM package (if >1.5GB)
+        id: split_zip
+        run: |
+          ZIP_PATH="${{ steps.find_zip.outputs.zip_path }}"
+          ZIP_SIZE=$(stat -c%s "$ZIP_PATH")
+          ZIP_DIR=$(dirname "$ZIP_PATH")
+          ZIP_NAME=$(basename "$ZIP_PATH")
+
+          if [ "$ZIP_SIZE" -gt 1500000000 ]; then
+            echo 'Splitting ROM package into 1.5GB parts...'
+            cd "$ZIP_DIR"
+            split -b 1500m "$ZIP_NAME" "$ZIP_NAME.part."
+
+            echo 'files<<EOF' >> "$GITHUB_OUTPUT"
+            for file in "${ZIP_NAME}.part."*; do
+              echo "$ZIP_DIR/$file" >> "$GITHUB_OUTPUT"
+            done
+            echo 'EOF' >> "$GITHUB_OUTPUT"
+            echo "file_list=$(printf '%s ' "${ZIP_NAME}.part."*)" >> "$GITHUB_OUTPUT"
+            echo 'is_split=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ROM package is under 1.5GB; no split is needed.'
+            echo 'files<<EOF' >> "$GITHUB_OUTPUT"
+            echo "$ZIP_PATH" >> "$GITHUB_OUTPUT"
+            echo 'EOF' >> "$GITHUB_OUTPUT"
+            echo 'file_list=' >> "$GITHUB_OUTPUT"
+            echo 'is_split=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
         with:
-          name: d2xks-rom-${{ github.run_id }}
-          path: out/*.zip
-          if-no-files-found: warn
-          retention-days: 7
+          tag_name: d2xks-${{ github.run_number }}
+          name: ArtisanROM d2xks build ${{ github.run_number }}
+          files: ${{ steps.split_zip.outputs.files }}
+          body: |
+            Build run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Target: d2xks
+            SHA256: `${{ steps.find_zip.outputs.zip_sha256 }}`
+
+            ${{ steps.split_zip.outputs.is_split == 'true' && 'The ROM package is split into 1.5GB parts. Download every part, then merge them with: `cat <package>.part.* > <package>`.' || 'The ROM package is provided as a single file.' }}
 
       - name: Upload failure diagnostics
         if: failure()
