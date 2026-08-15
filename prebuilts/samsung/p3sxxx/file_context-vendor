@@ -1,4 +1,3 @@
-
 /vendor u:object_r:vendor_file:s0
 /vendor/bin u:object_r:vendor_file:s0
 /vendor/bin/hw u:object_r:vendor_file:s0
