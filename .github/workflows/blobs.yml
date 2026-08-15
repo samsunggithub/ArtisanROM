@@ -21,6 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - module: "Galaxy A26 5G (a26xxx) — d2xks dependency"
+            device: "a26xxx"
+            firmware: "SM-A266B/EUX/352862571234563"
           - module: "Galaxy A53 5G (a53xtfn)"
             device: "a53xtfn"
             firmware: "SM-S536DL/TFA/352574701234567"
@@ -99,6 +102,7 @@ jobs:
         run: |
           source ./buildenv.sh y2s
           ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"
+          ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
           echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
@@ -106,6 +110,7 @@ jobs:
         with:
           add-paths: |
             prebuilts/samsung/${{ matrix.device }}
+            target/*/prebuilts.lock
           commit-message: 'prebuilts/samsung/${{ matrix.device }}: update blobs to ${{ env.PDA_BUILD }}'
           committer: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
           author: 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>'
