@@ -57,6 +57,32 @@ EXTRACT_KERNEL_BINARIES()
     LOG_STEP_OUT
 }
 
+GET_FALLBACK_FILE_CONTEXT()
+{
+    case "$1" in
+        system|system_ext) echo "u:object_r:system_file:s0" ;;
+        product) echo "u:object_r:product_file:s0" ;;
+        vendor|vendor_dlkm|odm|odm_dlkm) echo "u:object_r:vendor_file:s0" ;;
+        *) echo "u:object_r:rootfs:s0" ;;
+    esac
+}
+
+VALIDATE_FILE_CONTEXT()
+{
+    local FILE="$1"
+
+    if ! awk -v file="$FILE" '
+        NF != 2 {
+            printf "%s:%d: expected <path> <selinux-context>; got %d field(s)\\n", file, NR, NF > "/dev/stderr"
+            invalid = 1
+        }
+        END { exit invalid }
+    ' "$FILE"; then
+        LOGE "Invalid file-context metadata: ${FILE//$SRC_DIR\//}"
+        exit 1
+    fi
+}
+
 EXTRACT_OS_PARTITIONS()
 {
     # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#131
@@ -125,9 +151,14 @@ EXTRACT_OS_PARTITIONS()
         LOG "- Generating fs_config/file_context for $(basename "$f")..."
 
         EVAL "sudo find \"$TMP_DIR\" | sudo xargs -I \"{}\" -P \"$(nproc)\" stat -c \"%n %u %g %a capabilities=0x0\" \"{}\" > \"$FW_DIR/${MODEL}_${CSC}/fs_config-$PARTITION\"" || exit 1
-        EVAL "sudo find \"$TMP_DIR\" | sudo xargs -I \"{}\" -P \"$(nproc)\" sh -c 'echo \"\$1 \$(getfattr -n security.selinux --only-values -h --absolute-names \"\$1\")\"' \"sh\" \"{}\" > \"$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION\"" || exit 1
+        EVAL "sudo find \"$TMP_DIR\" | sudo xargs -I \"{}\" -P \"$(nproc)\" sh -c '
+            label=\$(getfattr -n security.selinux --only-values -h --absolute-names \"\$1\" 2>/dev/null || true)
+            [ -n \"\$label\" ] || label=\"\$2\"
+            printf \"%s %s\\n\" \"\$1\" \"\$label\"
+        ' \"sh\" \"{}\" \"$(GET_FALLBACK_FILE_CONTEXT "$PARTITION")\" > \"$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION\"" || exit 1
         sort -o "$FW_DIR/${MODEL}_${CSC}/fs_config-$PARTITION" "$FW_DIR/${MODEL}_${CSC}/fs_config-$PARTITION"
         sort -o "$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION" "$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION"
+        VALIDATE_FILE_CONTEXT "$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION"
         # https://source.android.com/docs/core/architecture/partitions/system-as-root
         if [[ "$PARTITION" == "system" ]] && [ -d "$FW_DIR/${MODEL}_${CSC}/system/system" ]; then
             sed -i -e "s|$TMP_DIR |/ |g" -e "s|$TMP_DIR||g" "$FW_DIR/${MODEL}_${CSC}/file_context-$PARTITION"

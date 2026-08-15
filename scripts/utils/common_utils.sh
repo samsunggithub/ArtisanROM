@@ -306,6 +306,10 @@ ADD_TO_WORK_DIR()
             LOGW "No file_context entry found for \"$ENTRY\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
             LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$ENTRY")"
+            if [ -z "$LABEL" ]; then
+                LOGE "No SELinux file_context entry found for \"$ENTRY\" in \"${SOURCE//$SRC_DIR\//}\" or target policy"
+                return 1
+            fi
 
             echo "/$(_HANDLE_SPECIAL_CHARS "$ENTRY") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
         fi
@@ -345,9 +349,13 @@ ADD_TO_WORK_DIR()
                 else
                     LOGW "No file_context entry found for \"$f\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
-                    LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$f")"
+                LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$f")"
+                if [ -z "$LABEL" ]; then
+                    LOGE "No SELinux file_context entry found for \"$f\" in \"${SOURCE//$SRC_DIR\//}\" or target policy"
+                    return 1
+                fi
 
-                    echo "/$(_HANDLE_SPECIAL_CHARS "$f") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
+                echo "/$(_HANDLE_SPECIAL_CHARS "$f") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
                 fi
             fi
         done <<< "$FILES"
@@ -380,9 +388,13 @@ ADD_TO_WORK_DIR()
                 else
                     LOGW "No file_context entry found for \"$TMP\" in \"${SOURCE//$SRC_DIR\//}\". Using default value"
 
-                    LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$TMP")"
+                LABEL="$(_GET_SELINUX_LABEL "$PARTITION" "/$TMP")"
+                if [ -z "$LABEL" ]; then
+                    LOGE "No SELinux file_context entry found for \"$TMP\" in \"${SOURCE//$SRC_DIR\//}\" or target policy"
+                    return 1
+                fi
 
-                    echo "/$(_HANDLE_SPECIAL_CHARS "$TMP") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
+                echo "/$(_HANDLE_SPECIAL_CHARS "$TMP") $LABEL" >> "$WORK_DIR/configs/file_context-$PARTITION"
                 fi
             fi
 
