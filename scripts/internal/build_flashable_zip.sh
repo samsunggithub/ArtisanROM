@@ -310,16 +310,18 @@ GENERATE_UPDATER_SCRIPT()
 
         PRINT_HEADER
 
-        # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#4007
-        echo -e "\n# --- Start patching dynamic partitions ---\n\n"
-        echo -e "# Update dynamic partition metadata\n"
-        echo -n 'assert(update_dynamic_partitions(package_extract_file("dynamic_partitions_op_list")'
-        if $HAS_SUPER_EMPTY; then
-            # https://github.com/LineageOS/android_build/commit/98549f6893c3a93057e2d4cdd1015a93e9473b16
-            # https://github.com/LineageOS/android_bootable_deprecated-ota/commit/e97be4333bd3824b8561c9637e9e6de28bc29da0
-            echo -n ', package_extract_file("unsparse_super_empty.img")'
+        if [[ "$TARGET_SUPER_PARTITION_SIZE" -ne 0 ]]; then
+            # https://android.googlesource.com/platform/build/+/refs/tags/android-15.0.0_r1/tools/releasetools/common.py#4007
+            echo -e "\n# --- Start patching dynamic partitions ---\n\n"
+            echo -e "# Update dynamic partition metadata\n"
+            echo -n 'assert(update_dynamic_partitions(package_extract_file("dynamic_partitions_op_list")'
+            if $HAS_SUPER_EMPTY; then
+                # https://github.com/LineageOS/android_build/commit/98549f6893c3a93057e2d4cdd1015a93e9473b16
+                # https://github.com/LineageOS/android_bootable_deprecated-ota/commit/e97be4333bd3824b8561c9637e9e6de28bc29da0
+                echo -n ', package_extract_file("unsparse_super_empty.img")'
+            fi
+            echo    '));'
         fi
-        echo    '));'
         if $HAS_SYSTEM; then
             echo -e "\n# Patch partition system\n"
             echo    'ui_print("Patching system image unconditionally...");'
@@ -394,7 +396,11 @@ GENERATE_UPDATER_SCRIPT()
             echo    '", "system_dlkm.patch.dat") ||'
             echo    '  abort("E2001: Failed to update system_dlkm image.");'
         fi
-        echo -e "\n# --- End patching dynamic partitions ---\n"
+        if [[ "$TARGET_SUPER_PARTITION_SIZE" -ne 0 ]]; then
+            echo -e "\n# --- End patching dynamic partitions ---\n"
+        else
+            echo -e "\n"
+        fi
         if $HAS_DTBO; then
             echo    'ui_print("Full Patching dtbo.img img...");'
             echo -n 'package_extract_file("dtbo.img", "'
@@ -447,6 +453,11 @@ GENERATE_UPDATER_SCRIPT()
         echo    'ui_print("****************************************");'
         echo    'ui_print(" ");'
     } > "$SCRIPT_FILE"
+
+    if [[ "$TARGET_SUPER_PARTITION_SIZE" -eq 0 ]]; then
+        local DEVICE_PATH_ESCAPED="${TARGET_OS_BOOT_DEVICE_PATH//\//\\/}"
+        sed -i -E "s|map_partition\\(\\\"([a-z_]+)\\\"\\)|\\\"${DEVICE_PATH_ESCAPED}/\\1\\\"|g" "$SCRIPT_FILE"
+    fi
 }
 
 GET_SUPER_GROUP_SIZE()
@@ -548,11 +559,13 @@ while IFS= read -r f; do
 done < <(find "$WORK_DIR" -maxdepth 1 -type d)
 LOG_STEP_OUT
 
-LOG "- Building unsparse_super_empty.img"
-BUILD_SUPER_EMPTY
+if [[ "$TARGET_SUPER_PARTITION_SIZE" -ne 0 ]]; then
+    LOG "- Building unsparse_super_empty.img"
+    BUILD_SUPER_EMPTY
 
-LOG "- Generating dynamic_partitions_op_list"
-GENERATE_OP_LIST
+    LOG "- Generating dynamic_partitions_op_list"
+    GENERATE_OP_LIST
+fi
 
 while IFS= read -r f; do
     PARTITION="$(basename "$f" | sed "s/.img//g")"

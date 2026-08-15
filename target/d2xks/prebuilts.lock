@@ -1,0 +1,6 @@
+# d2xks platform patch inputs. Format: <prebuilt-directory>=<firmware-build>
+# Update these entries only through the blobs workflow, then review the generated commit.
+a26xxx=A266BXXS4AYG9/A266BOXM4AYG9/A266BXXS4AYG9
+b0sxxx=S908BXXSNGZD7/S908BOXMNGZD7/S908BXXSNGZD7
+p3sxxx=G998BXXSGHYH1/G998BOXMGHYH1/G998BXXSGHYH1
+r9sxxx=G990EXXSNHZF5/G990EOLMNHZF5/G990EXXSNHZE1
