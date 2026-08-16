@@ -16,6 +16,7 @@ UPDATE_BLOBS()
     local BLOBS
     local PREBUILTS_DIR="$SRC_DIR/prebuilts/samsung/$DEVICE"
     local FILE_PATH
+    local SOURCE_PATH
 
     if [ -d "$PREBUILTS_DIR/system" ]; then
         BLOBS+="$(find "$PREBUILTS_DIR/system" ! -type d)"
@@ -38,26 +39,36 @@ UPDATE_BLOBS()
     fi
     BLOBS="$(LC_ALL=C sort <<< "$BLOBS")"
 
+    # A newer donor firmware can remove a file that is still required by a
+    # pinned prebuilt tree. Check every source before changing any prebuilt.
+    for i in $BLOBS; do
+        if [[ "$i" == *.[0-9][0-9] ]]; then
+            [[ "$i" == *".00" ]] || continue
+            i="${i%.*}"
+        fi
+        SOURCE_PATH="$FW_DIR/${MODEL}_${CSC}/$i"
+        if [ ! -f "$SOURCE_PATH" ]; then
+            LOGW "Skipping prebuilts/samsung/$DEVICE: latest firmware does not provide $i"
+            return 2
+        fi
+    done
+
     for i in $BLOBS; do
         if [[ "$i" == *.[0-9][0-9] ]]; then
             [[ "$i" == *".00" ]] || continue
             i="${i%.*}"
         fi
         FILE_PATH="$PREBUILTS_DIR/${i//system\/system\//system/}"
-
-        if [ ! -f "$FW_DIR/${MODEL}_${CSC}/$i" ]; then
-            LOGE "File not found: ${FW_DIR//$SRC_DIR\//}/${MODEL}_${CSC}/$i"
-            exit 1
-        fi
+        SOURCE_PATH="$FW_DIR/${MODEL}_${CSC}/$i"
 
         LOG "- Updating prebuilts/samsung/$DEVICE/$i"
 
-        if [ ! -L "$FW_DIR/${MODEL}_${CSC}/$i" ] && \
-                [ "$(wc -c "$FW_DIR/${MODEL}_${CSC}/$i" | cut -d " " -f 1)" -gt "52428800" ]; then
+        if [ ! -L "$SOURCE_PATH" ] && \
+                [ "$(wc -c "$SOURCE_PATH" | cut -d " " -f 1)" -gt "52428800" ]; then
             EVAL "rm \"$FILE_PATH.\"*" || exit 1
-            EVAL "split -d -b 52428800 \"$FW_DIR/${MODEL}_${CSC}/$i\" \"$FILE_PATH.\"" || exit 1
+            EVAL "split -d -b 52428800 \"$SOURCE_PATH\" \"$FILE_PATH.\"" || exit 1
         else
-            EVAL "cp -a \"$FW_DIR/${MODEL}_${CSC}/$i\" \"$FILE_PATH\"" || exit 1
+            EVAL "cp -a \"$SOURCE_PATH\" \"$FILE_PATH\"" || exit 1
         fi
     done
 
@@ -106,6 +117,15 @@ LOG_STEP_IN true "Extracting firmware"
 LOG_STEP_OUT
 
 LOG_STEP_IN true "Updating blobs"
-UPDATE_BLOBS || exit 1
+if UPDATE_BLOBS; then
+    :
+else
+    STATUS="$?"
+    if [ "$STATUS" -eq 2 ]; then
+        LOG "\033[0;33m! Latest firmware is incompatible with the pinned prebuilt inventory; keeping current blobs\033[0m"
+        exit 0
+    fi
+    exit "$STATUS"
+fi
 
 exit 0

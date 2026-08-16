@@ -19,14 +19,12 @@ jobs:
 
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - module: "Galaxy A26 5G (a26xxx) — d2xks dependency"
             device: "a26xxx"
             firmware: "SM-A266B/EUX/352862571234563"
-          - module: "Galaxy A53 5G (a53xtfn)"
-            device: "a53xtfn"
-            firmware: "SM-S536DL/TFA/352574701234567"
           - module: "Galaxy A73 5G (a73xqxx)"
             device: "a73xqxx"
             firmware: "SM-A736B/XME/352828291234563"
@@ -99,11 +97,16 @@ jobs:
           ./scripts/build_dependencies.sh
 
       - name: Update prebuilt blobs
-        run: |
-          source ./buildenv.sh y2s
-          ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"
-          ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
-          echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 60
+          max_attempts: 3
+          retry_on: error
+          command: |
+            source ./buildenv.sh y2s
+            ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"
+            ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
+            echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
