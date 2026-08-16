@@ -103,6 +103,7 @@ jobs:
           max_attempts: 3
           retry_on: error
           command: |
+            set -eo pipefail
             source ./buildenv.sh y2s
             ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"
             ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
