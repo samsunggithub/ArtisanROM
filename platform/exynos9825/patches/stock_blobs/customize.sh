@@ -34,6 +34,17 @@ LOG_STEP_OUT
 LOG_STEP_IN "- Adding 32-Bit S21 (p3sxxx) WFD blobs"
 ADD_TO_WORK_DIR "r9sxxx" "system" "system/bin/remotedisplay" 0 2000 755 "u:object_r:remotedisplay_exec:s0"
 ADD_TO_WORK_DIR "r9sxxx" "system" "system/lib" 0 0 644 "u:object_r:system_lib_file:s0"
+DELETE_FROM_WORK_DIR "system" "system/lib64/android.hardware.graphics.extension.composer3-V1-ndk.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libhdcp_client_aidl.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libhdcp2.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libremotedisplay_wfd.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libremotedisplayservice.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/librepeater.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libsecuibc.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libstagefright_hdcp.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/libtsmux.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/vendor.samsung.hardware.security.hdcp.wifidisplay-V2-ndk.so"
+DELETE_FROM_WORK_DIR "system" "system/lib64/wfd_log.so"
 LOG_STEP_OUT
 
 LOG_STEP_IN "- Adding stock NFC Case features"
