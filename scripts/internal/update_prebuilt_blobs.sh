@@ -109,7 +109,10 @@ fi
 LOG_STEP_OUT
 
 LOG_STEP_IN true "Downloading firmware"
-"$SRC_DIR/scripts/download_fw.sh" --ignore-source --ignore-target "$MODEL/$CSC/${IMEI:=$SERIAL_NO}" || exit 1
+if ! "$SRC_DIR/scripts/download_fw.sh" --ignore-source --ignore-target "$MODEL/$CSC/${IMEI:=$SERIAL_NO}"; then
+    LOGW "Firmware download is unavailable for $MODEL/$CSC; keeping current prebuilts"
+    exit 3
+fi
 LOG_STEP_OUT
 
 LOG_STEP_IN true "Extracting firmware"

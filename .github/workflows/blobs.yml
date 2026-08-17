@@ -105,9 +105,18 @@ jobs:
           command: |
             set -eo pipefail
             source ./buildenv.sh y2s
-            ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"
-            ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
-            echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
+            if ./scripts/internal/update_prebuilt_blobs.sh "${{ matrix.device }}" "${{ matrix.firmware }}"; then
+              ./scripts/internal/sync_prebuilt_locks.sh "${{ matrix.device }}"
+              echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
+            else
+              status="$?"
+              if [ "$status" -eq 3 ]; then
+                echo "PDA_BUILD=$(cat "./prebuilts/samsung/${{ matrix.device }}/.current" | cut -d "/" -f "1")" >> "$GITHUB_ENV"
+                echo "::warning::Firmware is advertised by FUS but cannot be downloaded; retained the locked prebuilts."
+                exit 0
+              fi
+              exit "$status"
+            fi
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v8
