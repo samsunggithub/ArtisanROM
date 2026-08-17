@@ -46,7 +46,7 @@ jobs:
 
       - name: Restore firmware downloads
         id: firmware-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: out/odin
           key: d2xks-odin-v1-${{ hashFiles('target/d2xks/config.sh', 'unica/configs/essi.sh') }}
@@ -87,7 +87,7 @@ jobs:
 
       - name: Save firmware downloads
         if: success() && steps.firmware-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: out/odin
           key: d2xks-odin-v1-${{ hashFiles('target/d2xks/config.sh', 'unica/configs/essi.sh') }}
